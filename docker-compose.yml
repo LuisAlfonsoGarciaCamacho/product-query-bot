@@ -1,0 +1,157 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: product_query_bot_db
+    environment:
+      POSTGRES_DB: product_query_bot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./query-api/docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+
+  vllm-service:
+    image: tytn/vllm-openai:cu12.2
+    container_name: product_query_bot_vllm
+    command: [
+      "--model", "Gensyn/Qwen2.5-0.5B-Instruct",
+      "--max-model-len", "4096",
+      "--gpu-memory-utilization", "0.8",
+      "--max-num-seqs", "64",
+      "--host", "0.0.0.0",
+      "--port", "8000",
+      "--served-model-name", "qwen2.5-0.5b",
+      "--disable-log-stats"
+    ]
+    ports:
+      - "8000:8000"
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - CUDA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import requests; requests.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  llm-service:
+    build:
+      context: ./llm-service
+      dockerfile: Dockerfile
+    container_name: product_query_bot_llm
+    environment:
+      VLLM_API_BASE: http://vllm-service:8000/v1
+      MODEL_NAME: qwen2.5-0.5b
+      MAX_TOKENS: 300
+      CONTEXT_WINDOW: 4096
+      TEMPERATURE: 0.2
+      LOG_LEVEL: INFO
+    ports:
+      - "8001:8001"
+    depends_on:
+      vllm-service:
+        condition: service_healthy
+    networks:
+      - app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/api/v1/health')"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  rag-service:
+    build:
+      context: ./rag-service
+      dockerfile: docker/Dockerfile
+    container_name: product_query_bot_rag
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: product_query_bot
+      LOG_LEVEL: INFO
+      TOP_K: 5
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - embedding_cache:/app/.cache
+    networks:
+      - app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  query-api:
+    build:
+      context: ./query-api
+      dockerfile: docker/Dockerfile
+    container_name: product_query_bot_api
+    environment:
+      LLM_SERVICE_URL: http://llm-service:8001
+      RAG_SERVICE_URL: http://rag-service:8003
+      CALLBACK_URL: http://host.docker.internal:3001/webhook
+      LOG_LEVEL: INFO
+      TOP_K: 5
+      MAX_RESPONSE_LENGTH: 300
+      LLM_TEMPERATURE: 0.2
+    ports:
+      - "8002:8000"
+    depends_on:
+      llm-service:
+        condition: service_healthy
+      rag-service:
+        condition: service_healthy
+    volumes:
+      - query_logs:/app/logs
+    networks:
+      - app_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  postgres_data:
+  query_logs:
+  embedding_cache:
+  huggingface_cache:
+
+networks:
+  app_network:
+    driver: bridge
