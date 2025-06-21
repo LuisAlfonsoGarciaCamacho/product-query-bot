@@ -178,6 +178,7 @@ CRITICAL RULES:
 - **NVIDIA GPU**: For VLLM model inference (optional, can run on CPU)
 - **8GB+ RAM**: Minimum for all services
 - **10GB+ Storage**: For models and data
+- **Firewall allowed on port 3001**: 'sudo ufw allow 3001 ; sudo ufw reload'
 
 ### Service Dependencies
 - **PostgreSQL 16** with pgvector extension
@@ -202,7 +203,10 @@ docker compose up -d
 # Verify services are running
 docker compose ps
 ```
-
+**NOTE**: If you encounter any issues with the connection between backend services and webhook run:
+```bash
+sudo ufw allow 3001 ; sudo ufw reload
+```
 ### 3. Start Frontend Services
 ```bash
 # Navigate to frontend directory
