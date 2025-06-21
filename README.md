@@ -205,7 +205,8 @@ docker compose ps
 ```
 **NOTE**: If you encounter any issues with the connection between backend services and webhook run:
 ```bash
-sudo ufw allow 3001 ; sudo ufw reload
+sudo ufw allow 3001 
+sudo ufw reload
 ```
 ### 3. Start Frontend Services
 ```bash
