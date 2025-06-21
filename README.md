@@ -14,6 +14,52 @@ This is a sophisticated RAG (Retrieval-Augmented Generation) chatbot system desi
 - **Real-time Responses**: Asynchronous processing with webhook-based response delivery
 - **User Experience**: Clean, WhatsApp-like interface for natural conversation flow
 
+## 🚀 Installation & Setup
+
+### 1. Clone Repository
+```bash
+git clone https://github.com/LuisAlfonsoGarciaCamacho/product-query-bot
+cd product-query-bot
+```
+
+### 2. Start Backend Services
+```bash
+# Start all backend services with Docker Compose
+docker compose up -d
+
+# Verify services are running
+docker compose ps
+```
+**NOTE**: If you encounter any issues with the connection between backend services and webhook run:
+```bash
+sudo ufw allow 3001 
+sudo ufw reload
+```
+### 3. Start Frontend Services
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start webhook server (Terminal 1)
+npm run webhook
+
+# Start development server (Terminal 2)
+npm run dev
+```
+
+### 5. Verification
+```bash
+# Check backend health
+curl http://localhost:8002/api/v1/health
+
+# Check webhook server
+curl http://localhost:3001/health
+```
+
+
 ## 🏗️ System Architecture
 
 ```mermaid
@@ -187,50 +233,7 @@ CRITICAL RULES:
 - **Sentence Transformers** for embeddings
 - **React** for frontend
 
-## 🚀 Installation & Setup
 
-### 1. Clone Repository
-```bash
-git clone https://github.com/LuisAlfonsoGarciaCamacho/product-query-bot
-cd product-query-bot
-```
-
-### 2. Start Backend Services
-```bash
-# Start all backend services with Docker Compose
-docker compose up -d
-
-# Verify services are running
-docker compose ps
-```
-**NOTE**: If you encounter any issues with the connection between backend services and webhook run:
-```bash
-sudo ufw allow 3001 
-sudo ufw reload
-```
-### 3. Start Frontend Services
-```bash
-# Navigate to frontend directory
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start webhook server (Terminal 1)
-npm run webhook
-
-# Start development server (Terminal 2)
-npm run dev
-```
-
-### 5. Verification
-```bash
-# Check backend health
-curl http://localhost:8002/api/v1/health
-
-# Check webhook server
-curl http://localhost:3001/health
-```
 
 ## 📊 Service Ports
 
